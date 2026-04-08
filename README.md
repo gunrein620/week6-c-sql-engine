@@ -280,3 +280,9 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 '-55'-> '55' (음수 -> 정수):
 
 ![음수값 무시 결과](assets/삽입후_수정전오름차순.png)
+
+## Assembly 참고 이미지
+
+![어셈블리어 CSAPP](assets/어셈블리어_CSAPP.jpeg)
+
+![오브젝트 코드(기계어) 디스어셈블 결과](<assets/오브젝트 코드(기계어)를 디스어셈블한 결과.jpeg>)
