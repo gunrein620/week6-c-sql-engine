@@ -313,7 +313,6 @@ ResultSet *storage_select(const char *table_name,
     /* 저장 파일은 단순 텍스트라서 한 줄씩 읽으며 필터링한다. */
     while (fgets(line, sizeof(line), file) != NULL) {
         Row full_row;
-        Row projected_row;
 
         if (result->row_count >= MAX_ROWS) {
             break;
@@ -328,16 +327,8 @@ ResultSet *storage_select(const char *table_name,
             continue;
         }
 
-        memset(&projected_row, 0, sizeof(projected_row));
-        projected_row.column_count = result->selected_count;
-        for (index = 0; index < result->selected_count; ++index) {
-            strncpy(projected_row.data[index],
-                    full_row.data[result->selected_indexes[index]],
-                    MAX_TOKEN_LEN - 1);
-            projected_row.data[index][MAX_TOKEN_LEN - 1] = '\0';
-        }
-
-        result->rows[result->row_count++] = projected_row;
+        (void)index;
+        result->rows[result->row_count++] = full_row;
     }
 
     fclose(file);

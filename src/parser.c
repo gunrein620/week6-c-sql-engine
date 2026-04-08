@@ -170,6 +170,42 @@ static int parse_where_clause(Parser *parser, Statement *stmt) {
     return 1;
 }
 
+static int parse_order_by_clause(Parser *parser, Statement *stmt) {
+    if (!match(parser, TOKEN_ORDER)) {
+        stmt->order_by.enabled = 0;
+        stmt->order_by.column_name[0] = '\0';
+        stmt->order_by.direction = SORT_ASC;
+        return 1;
+    }
+
+    stmt->order_by.enabled = 1;
+    stmt->order_by.direction = SORT_ASC;
+
+    if (!consume(parser, TOKEN_BY, "expected BY after ORDER")) {
+        return 0;
+    }
+
+    if (!parse_identifier(parser,
+                          stmt->order_by.column_name,
+                          sizeof(stmt->order_by.column_name),
+                          "expected column name after ORDER BY")) {
+        return 0;
+    }
+
+    if (match(parser, TOKEN_ASC)) {
+        stmt->order_by.direction = SORT_ASC;
+    } else if (match(parser, TOKEN_DESC)) {
+        stmt->order_by.direction = SORT_DESC;
+    }
+
+    if (check(parser, TOKEN_COMMA)) {
+        parser_error(parser, "multiple ORDER BY columns are not supported");
+        return 0;
+    }
+
+    return 1;
+}
+
 static int parse_select(Parser *parser, Statement *stmt) {
     stmt->type = STMT_SELECT;
 
@@ -208,7 +244,11 @@ static int parse_select(Parser *parser, Statement *stmt) {
         return 0;
     }
 
-    return parse_where_clause(parser, stmt);
+    if (!parse_where_clause(parser, stmt)) {
+        return 0;
+    }
+
+    return parse_order_by_clause(parser, stmt);
 }
 
 static int parse_insert(Parser *parser, Statement *stmt) {

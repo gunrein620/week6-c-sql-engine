@@ -76,6 +76,25 @@ static int test_string_escape_and_comments(void) {
     return 1;
 }
 
+static int test_order_by_keywords(void) {
+    Token *tokens;
+    int token_count = 0;
+
+    tokens = tokenize("select * from members order by age desc;", &token_count);
+    if (tokens == NULL) {
+        return th_fail("tokenize returned NULL for ORDER BY");
+    }
+
+    if (tokens[4].type != TOKEN_ORDER || tokens[5].type != TOKEN_BY ||
+        strcmp(tokens[6].value, "age") != 0 || tokens[7].type != TOKEN_DESC) {
+        free_tokens(tokens);
+        return th_fail("ORDER BY tokens were not recognized");
+    }
+
+    free_tokens(tokens);
+    return 1;
+}
+
 static int test_unterminated_string(void) {
     Token *tokens;
     int token_count = 0;
@@ -118,6 +137,15 @@ int main(void) {
     } else {
         failed++;
         th_print_result("string_escape_and_comments", 0);
+    }
+
+    th_reset_reason();
+    if (test_order_by_keywords()) {
+        passed++;
+        th_print_result("order_by_keywords", 1);
+    } else {
+        failed++;
+        th_print_result("order_by_keywords", 0);
     }
 
     th_reset_reason();
