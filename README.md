@@ -366,7 +366,40 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 - 실제 동작: [ERROR] Executor: type mismatch for column 'age' (expected INT) 출력 후 저장되지 않음.
 
 <br>
+##명령어 정리
 
+테이블 전체확인
+```bash
+./sqlengine -e "SELECT * FROM members;"
+```
+삽입 테스트 김빙수 넣기
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (32, '김빙수', 'vip', 'advanced', 42);"
+```
+30살 보다 어린 멤버의 id와 name
+```bash
+./sqlengine -e "SELECT id, name FROM members WHERE age >= 30;"
+```
+vip이면서 35살 이상인 멤버
+```bash
+./sqlengine -e "SELECT * FROM members WHERE grade = 'vip' AND age >= 35;"
+```
+나이 오름차순
+
+```bash
+./sqlengine -e "SELECT * FROM members ORDER BY age;"
+```
+-엣지-
+엣지케이스 음수
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (33, '최음수', 'vip', 'normal', -60);"
+```
+엣지케이스 오버플로
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483648);”
+```
+
+<br>
 ## DBMS 비교 참고 이미지
 
 ### MySQL 파이프라인
