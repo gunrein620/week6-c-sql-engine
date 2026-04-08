@@ -240,7 +240,7 @@ rm -f data/members.tbl
 - 저장 포맷 단순화를 위해 값 안의 `|`, 개행 문자는 지원하지 않습니다.
 
 
-## 발표 자료: INSERT 음수 파싱 에러
+## INSERT 음수 파싱 에러
 
 `INSERT` 문 처리 과정에서 정수 리터럴의 `-` 부호가 파싱 중 누락되어, 음수가 양수로 저장되는 문제가 있었습니다.
 
@@ -253,9 +253,6 @@ rm -f data/members.tbl
 INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'normal', 'basic', -55);
 ```
 
-
-## 에러사항
-### INSERT 파싱에러
 ![오름차순 정렬상태](assets/삽입전_수정전오름차순.png)
 
 음수 값 입력 쿼리:
