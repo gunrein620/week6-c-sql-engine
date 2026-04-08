@@ -52,6 +52,31 @@ static void to_lower_copy(char *dest, const char *src, size_t size) {
     dest[index] = '\0';
 }
 
+static char *next_csv_token(char **cursor) {
+    char *token;
+    char *current;
+
+    if (cursor == NULL || *cursor == NULL) {
+        return NULL;
+    }
+
+    current = *cursor;
+    token = current;
+
+    while (*current != '\0' && *current != ',') {
+        current++;
+    }
+
+    if (*current == ',') {
+        *current = '\0';
+        *cursor = current + 1;
+    } else {
+        *cursor = NULL;
+    }
+
+    return token;
+}
+
 ColumnType schema_parse_type(const char *type_str) {
     char upper[MAX_IDENTIFIER_LEN];
 
@@ -139,7 +164,7 @@ Schema *schema_load(const char *table_name) {
             continue;
         }
 
-        while ((token = strtok_r(rest, ",", &rest)) != NULL && part_count < 5) {
+        while ((token = next_csv_token(&rest)) != NULL && part_count < 5) {
             trim_in_place(token);
             parts[part_count++] = token;
         }
