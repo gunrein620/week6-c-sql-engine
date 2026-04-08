@@ -290,6 +290,45 @@ rm -f data/members.tbl
 
 <br>
 
+## 명령어 정리
+
+테이블 전체확인
+```bash
+./sqlengine -e "SELECT * FROM members;"
+```
+삽입 테스트 김빙수 넣기
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (32, '김빙수', 'vip', 'advanced', 42);"
+```
+30살 보다 어린 멤버의 id와 name
+```bash
+./sqlengine -e "SELECT id, name FROM members WHERE age >= 30;"
+```
+vip이면서 35살 이상인 멤버
+```bash
+./sqlengine -e "SELECT * FROM members WHERE grade = 'vip' AND age >= 35;"
+```
+나이 오름차순
+
+```bash
+./sqlengine -e "SELECT * FROM members ORDER BY age;"
+```
+-엣지-
+엣지케이스 음수
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (33, '최음수', 'vip', 'normal', -60);"
+```
+엣지케이스 int형 한도
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483647);"
+```
+엣지케이스 오버플로 발생
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483648);"
+```
+
+<br>
+
 ## INSERT 음수 파싱 에러
 
 `INSERT` 문 처리 과정에서 정수 리터럴의 `-` 부호가 파싱 중 누락되어, 음수가 양수로 저장되는 문제가 발생.
@@ -367,44 +406,7 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 
 <br>
 
-## 명령어 정리
 
-테이블 전체확인
-```bash
-./sqlengine -e "SELECT * FROM members;"
-```
-삽입 테스트 김빙수 넣기
-```bash
-./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (32, '김빙수', 'vip', 'advanced', 42);"
-```
-30살 보다 어린 멤버의 id와 name
-```bash
-./sqlengine -e "SELECT id, name FROM members WHERE age >= 30;"
-```
-vip이면서 35살 이상인 멤버
-```bash
-./sqlengine -e "SELECT * FROM members WHERE grade = 'vip' AND age >= 35;"
-```
-나이 오름차순
-
-```bash
-./sqlengine -e "SELECT * FROM members ORDER BY age;"
-```
--엣지-
-엣지케이스 음수
-```bash
-./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (33, '최음수', 'vip', 'normal', -60);"
-```
-엣지케이스 int형 한도
-```bash
-./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483647);"
-```
-엣지케이스 오버플로 발생
-```bash
-./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483648);"
-```
-
-<br>
 
 ## DBMS 비교 참고 이미지
 
