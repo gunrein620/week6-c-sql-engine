@@ -32,6 +32,34 @@ Makefile
 
 ---
 
+## 도메인 기준 (MEMBERS)
+
+구현·예시·테스트는 **기준 테이블 `members`** 와 아래 타입·상수를 맞춥니다. 상세는 `PROMPT.md`의 「도메인 기준: MEMBERS 레코드」와 동일합니다.
+
+- `MAX_NAME_LEN` (32), `MAX_GRADE_LEN` (16), `MAX_CLASS_LEN` (16): VARCHAR 길이·검증·버퍼 기준
+- `MemberRecord`: `id`, `name`, `grade`, `class`, `age` 필드 순서 및 고정 크기(72바이트) 참조 모델
+- 스키마 파일 `schemas/members.schema`·데이터 `data/members.tbl`이 대표 경로 예시가 됨
+
+```c
+#include <stdint.h>
+
+#define MAX_NAME_LEN 32
+#define MAX_GRADE_LEN 16
+#define MAX_CLASS_LEN 16
+
+typedef struct {
+    int32_t id;
+    char name[MAX_NAME_LEN];
+    char grade[MAX_GRADE_LEN];
+    char class[MAX_CLASS_LEN];
+    int32_t age;
+} MemberRecord;
+```
+
+다른 테이블명도 동일한 엔진 API로 처리 가능하나, 문서·블랙박스 명세는 `members`를 기본으로 합니다.
+
+---
+
 ## 공통 타입 (`types.h`)
 
 ### TokenType (열거형)
@@ -172,11 +200,11 @@ void free_tokens(Token* tokens);
 ### 지원 SQL 예시
 
 ```sql
--- Oracle 문법 기준
-INSERT INTO employees (id, name, salary) VALUES (1, 'Alice', 50000);
-SELECT * FROM employees;
-SELECT id, name FROM employees WHERE salary > 40000;
-SELECT * FROM employees WHERE dept = 'IT' AND salary >= 60000;
+-- Oracle 문법 기준 (MEMBERS 도메인 예시)
+INSERT INTO members (id, name, grade, class, age) VALUES (1, 'Alice', 'vip', 'advanced', 30);
+SELECT * FROM members;
+SELECT id, name FROM members WHERE age > 20;
+SELECT * FROM members WHERE grade = 'vip' AND age >= 25;
 ```
 
 ---
@@ -272,14 +300,16 @@ int execute_select(Statement* stmt);
 - **출력 형식**:
 
 ```
-+----+-------+--------+
-| id | name  | salary |
-+----+-------+--------+
-|  1 | Alice |  50000 |
-|  2 | Bob   |  45000 |
-+----+-------+--------+
++----+-------+------+----------+-----+
+| id | name  | grade | class   | age |
++----+-------+------+----------+-----+
+|  1 | Alice | vip  | advanced |  30 |
+|  2 | Bob   | normal | basic  |  22 |
++----+-------+------+----------+-----+
 2 row(s) selected.
 ```
+
+(컬럼 선택·값 길이에 따라 열 너비는 구현에서 조정 가능)
 
 ---
 
@@ -316,10 +346,10 @@ void free_result_set(ResultSet* rs);
 
 ```
 # 첫 줄: 컬럼 헤더 (스키마와 동일 순서)
-id|name|salary|dept
+id|name|grade|class|age
 # 이후: 데이터 행
-1|Alice|50000|IT
-2|Bob|45000|HR
+1|Alice|vip|advanced|30
+2|Bob|normal|basic|22
 ```
 
 ---
@@ -345,13 +375,16 @@ void schema_free(Schema* schema);
 ### 스키마 파일 포맷 (`.schema`)
 
 ```
-# table: employees
+# table: members
 # format: column_name,type,max_length,nullable,primary_key
 id,INT,0,0,1
-name,VARCHAR,100,0,0
-salary,INT,0,1,0
-dept,VARCHAR,50,1,0
+name,VARCHAR,32,0,0
+grade,VARCHAR,16,1,0
+class,VARCHAR,16,1,0
+age,INT,0,1,0
 ```
+
+(`max_length`·nullable은 `MemberRecord`·`MAX_*`와 일치시킬 것)
 
 ---
 
@@ -364,7 +397,7 @@ dept,VARCHAR,50,1,0
 ./sqlengine -f query.sql
 
 # SQL 직접 입력
-./sqlengine -e "SELECT * FROM employees;"
+./sqlengine -e "SELECT * FROM members;"
 
 # 인터랙티브 모드
 ./sqlengine
@@ -402,8 +435,8 @@ dept,VARCHAR,50,1,0
 ```
 [ERROR] Parser: unexpected token 'FORM' at line 1 (expected FROM)
 [ERROR] Schema: table 'unknown_table' not found
-[ERROR] Storage: failed to open data/employees.tbl
-[ERROR] Executor: type mismatch for column 'salary' (expected INT, got STRING)
+[ERROR] Storage: failed to open data/members.tbl
+[ERROR] Executor: type mismatch for column 'age' (expected INT, got STRING)
 ```
 
 ---
@@ -481,9 +514,9 @@ tests/
 |-----------|---------------|------|-----------|
 | WB-S-01 | 파일 신규 생성 분기 | `.tbl` 미존재 후 `storage_insert` | 헤더 포함 파일 생성 |
 | WB-S-02 | 기존 파일 append 분기 | `.tbl` 존재 후 `storage_insert` | 기존 행 유지, 새 행 추가 |
-| WB-S-03 | WHERE `=` INT 비교 | `salary = 50000` | 일치 행만 반환 |
-| WB-S-04 | WHERE `>` INT 비교 | `salary > 45000` | 조건 만족 행만 반환 |
-| WB-S-05 | WHERE VARCHAR 비교 | `dept = 'IT'` | 문자열 일치 행만 반환 |
+| WB-S-03 | WHERE `=` INT 비교 | `age = 30` | 일치 행만 반환 |
+| WB-S-04 | WHERE `>` INT 비교 | `age > 20` | 조건 만족 행만 반환 |
+| WB-S-05 | WHERE VARCHAR 비교 | `grade = 'vip'` | 문자열 일치 행만 반환 |
 | WB-S-06 | WHERE 조건 불일치 | 없는 값 조건 | `row_count == 0` |
 | WB-S-07 | NULL 필드 처리 | nullable 컬럼 빈 값 읽기 | data 필드 = `""` |
 
@@ -515,10 +548,10 @@ tests/
 
 | 테스트 ID | 입력 | 기대 출력 | 기대 종료 코드 |
 |-----------|------|-----------|---------------|
-| BB-01 | `INSERT INTO employees (id,name) VALUES (1,'Alice');` | `1 row inserted.` | `0` |
-| BB-02 | `SELECT * FROM employees;` (BB-01 이후) | 테이블 형식 출력, `1 row(s) selected.` | `0` |
-| BB-03 | `SELECT * FROM employees WHERE id = 1;` | Alice 행 포함 | `0` |
-| BB-04 | `SELECT * FROM employees WHERE id = 99;` | `0 row(s) selected.` | `0` |
+| BB-01 | `INSERT INTO members (id,name) VALUES (1,'Alice');` (나머지 컬럼은 스키마상 NULL 허용 시 생략 가능) | `1 row inserted.` | `0` |
+| BB-02 | `SELECT * FROM members;` (BB-01 이후) | 테이블 형식 출력, `1 row(s) selected.` | `0` |
+| BB-03 | `SELECT * FROM members WHERE id = 1;` | Alice 행 포함 | `0` |
+| BB-04 | `SELECT * FROM members WHERE id = 99;` | `0 row(s) selected.` | `0` |
 | BB-05 | `-f` 옵션으로 SQL 파일 실행 | 정상 출력 | `0` |
 | BB-06 | 세미콜론으로 구분된 SQL 2개 연속 실행 | 각 SQL 결과 순서대로 출력 | `0` |
 
@@ -527,10 +560,10 @@ tests/
 | 테스트 ID | 입력 | 기대 stderr 포함 문자열 | 기대 종료 코드 |
 |-----------|------|------------------------|---------------|
 | BB-E-01 | `SELECT * FROM nonexistent;` | `[ERROR] Schema:` | `2` |
-| BB-E-02 | `SELEC * FROM employees;` | `[ERROR] Parser:` | `1` |
+| BB-E-02 | `SELEC * FROM members;` | `[ERROR] Parser:` | `1` |
 | BB-E-03 | `-f missing.sql` | `[ERROR]` 파일 없음 | `3` |
-| BB-E-04 | `INSERT INTO employees (id) VALUES ('notanumber');` (id가 INT) | `[ERROR] Executor:` | `2` |
-| BB-E-05 | `INSERT INTO employees (id,name,salary) VALUES (1,'A');` (컬럼 수 불일치) | `[ERROR] Executor:` | `2` |
+| BB-E-04 | `INSERT INTO members (id) VALUES ('notanumber');` (id가 INT) | `[ERROR] Executor:` | `2` |
+| BB-E-05 | `INSERT INTO members (id,name,grade,class,age) VALUES (1,'A');` (컬럼 수 불일치) | `[ERROR] Executor:` | `2` |
 
 **엣지 케이스**
 
