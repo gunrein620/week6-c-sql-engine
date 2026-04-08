@@ -95,6 +95,32 @@ static int test_order_by_keywords(void) {
     return 1;
 }
 
+static int test_negative_number_literal(void) {
+    Token *tokens;
+    int token_count = 0;
+    int found_negative = 0;
+
+    tokens = tokenize("INSERT INTO members (age) VALUES (-55);", &token_count);
+    if (tokens == NULL) {
+        return th_fail("tokenize returned NULL for negative number");
+    }
+
+    for (int i = 0; i < token_count; ++i) {
+        if (tokens[i].type == TOKEN_NUMBER && strcmp(tokens[i].value, "-55") == 0) {
+            found_negative = 1;
+            break;
+        }
+    }
+
+    free_tokens(tokens);
+
+    if (!found_negative) {
+        return th_fail("negative numeric literal was not preserved");
+    }
+
+    return 1;
+}
+
 static int test_unterminated_string(void) {
     Token *tokens;
     int token_count = 0;
@@ -146,6 +172,15 @@ int main(void) {
     } else {
         failed++;
         th_print_result("order_by_keywords", 0);
+    }
+
+    th_reset_reason();
+    if (test_negative_number_literal()) {
+        passed++;
+        th_print_result("negative_number_literal", 1);
+    } else {
+        failed++;
+        th_print_result("negative_number_literal", 0);
     }
 
     th_reset_reason();

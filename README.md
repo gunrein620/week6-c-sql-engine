@@ -279,14 +279,20 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 
 `INSERT` 문 처리 과정에서 `INT` 컬럼에 대해 숫자 형식만 확인하고, 실제 `int32_t` 범위 초과 여부는 검사하지 않아 오버플로 값이 그대로 저장되는 문제가 있었습니다.
 
-- 증상: `999999999999999999999` 같은 `INT` 범위 초과 값이 에러 없이 저장됨
-- 원인: `strtol` 결과를 사용하더라도 `INT32_MIN ~ INT32_MAX` 범위 검증이 빠져 있었음
+- 증상: `2147483648` 같은 `INT` 범위 초과 값이 에러 없이 저장됨
+
+문제 발생 흐름:
+
+- SQL에서 `2147483648`을 입력함
+- Parser가 이 값을 숫자 리터럴로 받아둠
+- Executor가 "정수 형식인지"만 확인하고 범위 초과 여부는 검사하지 않음
+- Storage가 그 값을 그대로 `.tbl` 파일에 저장함
 
 
 문제 재현 쿼리:
 
 ```sql
-INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'normal', 'basic', 999999999999999999999);
+INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'normal', 'basic', 2147483648);
 ```
 
 수정 전 결과:
