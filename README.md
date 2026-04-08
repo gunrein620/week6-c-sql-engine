@@ -395,9 +395,13 @@ vip이면서 35살 이상인 멤버
 ```bash
 ./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (33, '최음수', 'vip', 'normal', -60);"
 ```
-엣지케이스 오버플로
+엣지케이스 오버플로 한도
 ```bash
-./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483648);”
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483647);"
+```
+엣지케이스 오버플로 발생
+```bash
+./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (34, '이플로', 'vip', 'advanced', 2147483648);"
 ```
 
 <br>
