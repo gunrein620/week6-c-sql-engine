@@ -29,6 +29,8 @@ SELECT id, name FROM members;
 SELECT * FROM members WHERE age >= 20;
 SELECT * FROM members WHERE grade = 'vip' AND age >= 25;
 SELECT * FROM members WHERE class = 'advanced' OR class = 'basic';
+SELECT * FROM members ORDER BY age;
+SELECT name FROM members ORDER BY age DESC;
 ```
 
 지원 연산자:
@@ -41,6 +43,7 @@ SELECT * FROM members WHERE class = 'advanced' OR class = 'basic';
 
 - `CREATE TABLE`, `UPDATE`, `DELETE` 는 구현하지 않았습니다.
 - `WHERE` 절에서 `AND` 와 `OR` 를 한 문장 안에 섞는 것은 지원하지 않습니다.
+- `ORDER BY` 는 단일 컬럼만 지원합니다.
 - `NULL` 은 `INSERT` 값으로만 지원합니다.
 
 ## Project Structure
@@ -127,6 +130,8 @@ rm -f data/members.tbl
 ./sqlengine -e "SELECT * FROM members WHERE grade = 'vip';"
 ./sqlengine -e "SELECT * FROM members WHERE age >= 30;"
 ./sqlengine -e "SELECT id, name FROM members WHERE class = 'advanced';"
+./sqlengine -e "SELECT * FROM members ORDER BY age;"
+./sqlengine -e "SELECT name FROM members ORDER BY age DESC;"
 ```
 
 ### 3. SQL 파일 실행
@@ -198,6 +203,7 @@ rm -f data/members.tbl
 ./sqlengine -e "SELECT * FROM members;"
 ./sqlengine -e "SELECT id, name FROM members WHERE age >= 30;"
 ./sqlengine -e "SELECT * FROM members WHERE grade = 'vip';"
+./sqlengine -e "SELECT name FROM members ORDER BY age DESC;"
 ```
 
 ## Error Scenarios
@@ -232,3 +238,29 @@ rm -f data/members.tbl
 - `rm -f data/members.tbl` 후에는 첫 `INSERT` 때 다시 파일이 생성됩니다.
 - 한글 이름도 저장 가능합니다.
 - 저장 포맷 단순화를 위해 값 안의 `|`, 개행 문자는 지원하지 않습니다.
+
+
+## 발표 자료: INSERT 음수 파싱 에러
+
+`INSERT` 문 처리 과정에서 정수 리터럴의 `-` 부호가 파싱 중 누락되어, 음수가 양수로 저장되는 문제가 있었습니다.
+
+- 증상: `-55`를 입력해도 `55`로 저장됨
+- 원인: 정수 토큰 처리 과정에서 부호(`-`)를 보존하지 못함
+
+문제 재현 쿼리:
+
+```sql
+INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'normal', 'basic', -55);
+```
+
+음수 값 입력 쿼리:
+
+![음수 값 입력 쿼리](assets/음수쿼리.png)
+
+수정 전 결과 (`-55`가 `55`로 저장):
+
+![수정 전 결과](assets/삽입전_수정전오름차순.png)
+
+수정 후 결과 (음수 값 정상 반영):
+
+![수정 후 결과](assets/삽입후_수정전오름차순.png)
