@@ -127,21 +127,16 @@ id|name|grade|class|age
 
 ### 5. 아키텍처 비교 — 우리 프로젝트 vs MySQL vs SQLite
 
-| 항목 | 우리 프로젝트 | MySQL | SQLite |
-|------|-------------|-------|--------|
-| 목표 | SQL 처리 흐름 학습 | 범용 서버형 RDBMS | 임베디드 DB 엔진 |
-| 실행 형태 | 단일 CLI 프로그램 | 클라이언트-서버 | 라이브러리 + CLI 셸 |
-| 처리 파이프라인 | CLI -> Lexer -> Parser -> Executor -> Storage/Schema | Parser -> Optimizer -> Executor -> Storage Engine | Tokenizer -> Parser -> Planner/CodeGen -> VDBE -> B-tree/Pager |
-| 실행 계획 최적화 | 없음 | 강력함 | 있음 |
-| 저장 방식 | 텍스트 `.tbl` | InnoDB 등 엔진 | 단일 DB 파일 |
-| 트랜잭션 | 없음 | 지원 | 지원 |
-| 장애 복구 | 없음 | redo / undo 기반 | rollback journal / WAL |
-| 인덱스 | 없음 | 지원 | 지원 |
-
-- 포지셔닝: 산업용 DBMS 재현 아님
-- 비교 기준: 구조 학습용 mini SQL engine
-- 차별점: SQL 입력부터 저장까지 흐름이 눈에 보이는 단순 구조
-- 한계: 최적화, 복구, 동시성, 인덱스는 미구현
+| 항목        | 우리 프로젝트            | MySQL                         | SQLite                                   |
+| --------- | ------------------ | ----------------------------- | ---------------------------------------- |
+| 목표        | SQL 처리 흐름 학습용 | 범용 서버형 RDBMS                  | 임베디드 파일 기반 DB                            |
+| 실행 형태     | 단일 CLI 프로그램        | 클라이언트-서버 구조                   | 라이브러리 + CLI                              |
+| SQL 처리 단계 | CLI -> Lexer -> Parser -> Executor    | Parser → Optimizer → Executor → Engine| Parser → Query Planner → Virtual Machine |
+| 쿼리 최적화    | 없음                 | 있음 (인덱스, 실행계획)                | 있음 (경량 Planner)                          |
+| 실행 방식     | 직접 파일 읽기/쓰기        | Storage Engine (InnoDB 등)     | VDBE(가상머신)로 실행                           |
+| 저장 구조     | 단순 텍스트 파일 (.tbl)   | 페이지 기반 디스크 저장                 | 단일 파일 + B-tree 구조                        |
+| 동시성 처리    | 없음                 | 트랜잭션 / 락 지원                   | 제한적 트랜잭션                                 |
+| 지원 SQL    | INSERT, SELECT     | 대부분 SQL                       | 대부분 SQL                                  |
 
 ---
 
