@@ -281,6 +281,22 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 
 ![음수값 무시 결과](assets/삽입후_수정전오름차순.png)
 
+
+## DBMS 비교 참고 이미지
+
+### MySQL 파이프라인
+
+![MySQL 마인드맵](assets/005_mysql_pipeline_ko.png)
+
+### SQLite 파이프라인
+
+![SQLite 마인드맵](assets/006_sqlite_pipeline_ko.png)
+
+### MySQL vs SQLite
+
+![MySQL vs SQLite 마인드맵](assets/007_mysql_vs_sqlite_ko.png)
+
+
 ## Assembly 참고 이미지
 
 ![어셈블리어 CSAPP](assets/어셈블리어_CSAPP.jpeg)
