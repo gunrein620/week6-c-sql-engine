@@ -300,7 +300,7 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 - 기대 동작: 타입 불일치 에러 발생
 - 실제 동작: `1 row inserted.` 출력 후 row 저장
 
-![오버플로 입력 전 상태](assets/수정전_오버플로.png)
+![오버플로 입력 전 상태](assets/수정전_오버플로1.png)
 
 수정 후 결과:
 
