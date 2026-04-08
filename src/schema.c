@@ -3,7 +3,6 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,63 +50,6 @@ static void to_lower_copy(char *dest, const char *src, size_t size) {
         dest[index] = (char)tolower((unsigned char)src[index]);
     }
     dest[index] = '\0';
-}
-
-static char *next_csv_token(char **cursor) {
-    char *token;
-    char *current;
-
-    if (cursor == NULL || *cursor == NULL) {
-        return NULL;
-    }
-
-    current = *cursor;
-    token = current;
-
-    while (*current != '\0' && *current != ',') {
-        current++;
-    }
-
-    if (*current == ',') {
-        *current = '\0';
-        *cursor = current + 1;
-    } else {
-        *cursor = NULL;
-    }
-
-    return token;
-}
-
-static int parse_non_negative_int(const char *text, int *out_value) {
-    char *end_ptr;
-    long value;
-
-    if (text == NULL || text[0] == '\0') {
-        return 0;
-    }
-
-    errno = 0;
-    value = strtol(text, &end_ptr, 10);
-    if (errno != 0 || *end_ptr != '\0' || value < 0 || value > 2147483647L) {
-        return 0;
-    }
-
-    *out_value = (int)value;
-    return 1;
-}
-
-static int parse_flag_field(const char *text, int *out_value) {
-    int parsed_value;
-
-    if (!parse_non_negative_int(text, &parsed_value)) {
-        return 0;
-    }
-    if (parsed_value != 0 && parsed_value != 1) {
-        return 0;
-    }
-
-    *out_value = parsed_value;
-    return 1;
 }
 
 ColumnType schema_parse_type(const char *type_str) {
@@ -160,7 +102,6 @@ Schema *schema_load(const char *table_name) {
     char path[MAX_PATH_LEN];
     char line[1024];
     int line_number = 0;
-    int primary_key_count = 0;
 
     if (table_name == NULL) {
         fprintf(stderr, "[ERROR] Schema: table name is NULL\n");
@@ -198,7 +139,7 @@ Schema *schema_load(const char *table_name) {
             continue;
         }
 
-        while ((token = next_csv_token(&rest)) != NULL && part_count < 5) {
+        while ((token = strtok_r(rest, ",", &rest)) != NULL && part_count < 5) {
             trim_in_place(token);
             parts[part_count++] = token;
         }
@@ -222,58 +163,10 @@ Schema *schema_load(const char *table_name) {
 
         column = &schema->columns[schema->column_count];
         to_lower_copy(column->name, parts[0], sizeof(column->name));
-        if (schema_get_column_index(schema, column->name) >= 0) {
-            fprintf(stderr,
-                    "[ERROR] Schema: duplicate column '%s' at line %d in %s\n",
-                    column->name,
-                    line_number,
-                    path);
-            schema_free(schema);
-            fclose(file);
-            return NULL;
-        }
         column->type = schema_parse_type(parts[1]);
-        if (!parse_non_negative_int(parts[2], &column->max_length)) {
-            fprintf(stderr,
-                    "[ERROR] Schema: invalid max_length '%s' at line %d in %s\n",
-                    parts[2],
-                    line_number,
-                    path);
-            schema_free(schema);
-            fclose(file);
-            return NULL;
-        }
-        if (!parse_flag_field(parts[3], &column->nullable)) {
-            fprintf(stderr,
-                    "[ERROR] Schema: invalid nullable flag '%s' at line %d in %s\n",
-                    parts[3],
-                    line_number,
-                    path);
-            schema_free(schema);
-            fclose(file);
-            return NULL;
-        }
-        if (!parse_flag_field(parts[4], &column->is_primary_key)) {
-            fprintf(stderr,
-                    "[ERROR] Schema: invalid primary key flag '%s' at line %d in %s\n",
-                    parts[4],
-                    line_number,
-                    path);
-            schema_free(schema);
-            fclose(file);
-            return NULL;
-        }
-        if (column->is_primary_key) {
-            primary_key_count++;
-            if (primary_key_count > 1) {
-                fprintf(stderr,
-                        "[ERROR] Schema: multiple primary keys are not supported in %s\n",
-                        path);
-                schema_free(schema);
-                fclose(file);
-                return NULL;
-            }
-        }
+        column->max_length = atoi(parts[2]);
+        column->nullable = atoi(parts[3]);
+        column->is_primary_key = atoi(parts[4]);
 
         if (column->type == COL_UNKNOWN) {
             fprintf(stderr,
@@ -290,13 +183,6 @@ Schema *schema_load(const char *table_name) {
     }
 
     fclose(file);
-
-    if (schema->column_count == 0) {
-        fprintf(stderr, "[ERROR] Schema: no columns defined in %s\n", path);
-        schema_free(schema);
-        return NULL;
-    }
-
     return schema;
 }
 

@@ -117,6 +117,7 @@ static int run_single_statement(const char *sql) {
 
 /* 문자열 안의 세미콜론은 보존하고, 실제 문장 경계만 분리한다. */
 static int run_sql_script(const char *script) {
+    int worst_exit_code = 0;
     int in_string = 0;
     size_t statement_start = 0;
     size_t index;
@@ -150,9 +151,8 @@ static int run_sql_script(const char *script) {
 
             if (statement[0] != '\0') {
                 statement_exit_code = run_single_statement(statement);
-                if (statement_exit_code != 0) {
-                    free(statement);
-                    return statement_exit_code;
+                if (statement_exit_code > worst_exit_code) {
+                    worst_exit_code = statement_exit_code;
                 }
             }
 
@@ -165,7 +165,7 @@ static int run_sql_script(const char *script) {
         }
     }
 
-    return 0;
+    return worst_exit_code;
 }
 
 int main(int argc, char **argv) {

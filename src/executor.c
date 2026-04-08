@@ -5,8 +5,6 @@
 #include "storage.h"
 
 #include <ctype.h>
-#include <errno.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,41 +15,28 @@ static SortDirection g_sort_direction = SORT_ASC;
 
 static int is_valid_int(const char *text) {
     char *end_ptr;
-    long value;
 
     if (text == NULL || text[0] == '\0') {
         return 0;
     }
 
-    errno = 0;
-    value = strtol(text, &end_ptr, 10);
-    return errno == 0 && *end_ptr == '\0' && value >= INT32_MIN && value <= INT32_MAX;
+    strtol(text, &end_ptr, 10);
+    return *end_ptr == '\0';
 }
 
 static int is_valid_float(const char *text) {
     char *end_ptr;
-    double value;
 
     if (text == NULL || text[0] == '\0') {
         return 0;
     }
 
-    errno = 0;
-    value = strtod(text, &end_ptr);
-    return errno == 0 && *end_ptr == '\0' && isfinite(value);
-}
-
-static int is_leap_year(int year) {
-    return ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
+    strtod(text, &end_ptr);
+    return *end_ptr == '\0';
 }
 
 static int is_valid_date(const char *text) {
-    static const int DAYS_IN_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int index;
-    int year;
-    int month;
-    int day;
-    int max_day;
 
     if (text == NULL || strlen(text) != 10) {
         return 0;
@@ -67,65 +52,6 @@ static int is_valid_date(const char *text) {
         }
     }
 
-    year = (text[0] - '0') * 1000 + (text[1] - '0') * 100 + (text[2] - '0') * 10 + (text[3] - '0');
-    month = (text[5] - '0') * 10 + (text[6] - '0');
-    day = (text[8] - '0') * 10 + (text[9] - '0');
-
-    if (month < 1 || month > 12) {
-        return 0;
-    }
-
-    max_day = DAYS_IN_MONTH[month - 1];
-    if (month == 2 && is_leap_year(year)) {
-        max_day = 29;
-    }
-
-    return day >= 1 && day <= max_day;
-}
-
-static int utf8_char_count(const char *text, int *out_count) {
-    int count = 0;
-    int index = 0;
-
-    if (text == NULL || out_count == NULL) {
-        return 0;
-    }
-
-    while (text[index] != '\0') {
-        unsigned char lead = (unsigned char)text[index];
-        int width = 0;
-        int offset;
-
-        if ((lead & 0x80u) == 0) {
-            width = 1;
-        } else if ((lead & 0xE0u) == 0xC0u) {
-            if (lead < 0xC2u) {
-                return 0;
-            }
-            width = 2;
-        } else if ((lead & 0xF0u) == 0xE0u) {
-            width = 3;
-        } else if ((lead & 0xF8u) == 0xF0u) {
-            if (lead > 0xF4u) {
-                return 0;
-            }
-            width = 4;
-        } else {
-            return 0;
-        }
-
-        for (offset = 1; offset < width; ++offset) {
-            unsigned char continuation = (unsigned char)text[index + offset];
-            if (continuation == '\0' || (continuation & 0xC0u) != 0x80u) {
-                return 0;
-            }
-        }
-
-        index += width;
-        count++;
-    }
-
-    *out_count = count;
     return 1;
 }
 
@@ -183,16 +109,6 @@ static int compare_rows_for_sort(const void *left_ptr, const void *right_ptr) {
     const Row *right_row = (const Row *)right_ptr;
     int result;
 
-    if (left_row->is_null[g_sort_column_index] && right_row->is_null[g_sort_column_index]) {
-        return 0;
-    }
-    if (left_row->is_null[g_sort_column_index]) {
-        return (g_sort_direction == SORT_DESC) ? 1 : -1;
-    }
-    if (right_row->is_null[g_sort_column_index]) {
-        return (g_sort_direction == SORT_DESC) ? -1 : 1;
-    }
-
     result = compare_values_for_sort(g_sort_schema->columns[g_sort_column_index].type,
                                      left_row->data[g_sort_column_index],
                                      right_row->data[g_sort_column_index]);
@@ -231,8 +147,6 @@ static int find_primary_key_index(Schema *schema) {
 }
 
 static int validate_value(ColumnDef *column, const char *value, int is_null) {
-    int char_count = 0;
-
     if (is_null) {
         if (!column->nullable || column->is_primary_key) {
             fprintf(stderr,
@@ -271,20 +185,14 @@ static int validate_value(ColumnDef *column, const char *value, int is_null) {
         return 0;
     }
 
-    if (column->type == COL_VARCHAR) {
-        if (!utf8_char_count(value, &char_count)) {
-            fprintf(stderr,
-                    "[ERROR] Executor: invalid UTF-8 for column '%s'\n",
-                    column->name);
-            return 0;
-        }
-        if (column->max_length > 0 && char_count > column->max_length) {
-            fprintf(stderr,
-                    "[ERROR] Executor: value too long for column '%s' (max %d)\n",
-                    column->name,
-                    column->max_length);
-            return 0;
-        }
+    if (column->type == COL_VARCHAR &&
+        column->max_length > 0 &&
+        (int)strlen(value) > column->max_length) {
+        fprintf(stderr,
+                "[ERROR] Executor: value too long for column '%s' (max %d)\n",
+                column->name,
+                column->max_length);
+        return 0;
     }
 
     return 1;
@@ -386,19 +294,16 @@ static int build_insert_row(Statement *stmt, Schema *schema, Row *row) {
                 return 0;
             }
             row->data[index][0] = '\0';
-            row->is_null[index] = 1;
             continue;
         }
 
         if (stmt->value_is_null[value_index]) {
             row->data[index][0] = '\0';
-            row->is_null[index] = 1;
             continue;
         }
 
         strncpy(row->data[index], stmt->values[value_index], MAX_TOKEN_LEN - 1);
         row->data[index][MAX_TOKEN_LEN - 1] = '\0';
-        row->is_null[index] = 0;
     }
 
     return ensure_primary_key_is_unique(schema, row);
@@ -430,8 +335,7 @@ static void print_result_row(const ResultSet *result, const Row *row, const int 
     int column_index;
 
     for (column_index = 0; column_index < result->selected_count; ++column_index) {
-        int source_index = result->selected_indexes[column_index];
-        const char *value = row->is_null[source_index] ? "NULL" : row->data[source_index];
+        const char *value = row->data[result->selected_indexes[column_index]];
         printf("| %-*s ", widths[column_index], value);
     }
     puts("|");
@@ -454,11 +358,8 @@ static void print_result_table(ResultSet *result) {
 
     for (row_index = 0; row_index < result->row_count; ++row_index) {
         for (column_index = 0; column_index < result->selected_count; ++column_index) {
-            int source_index = result->selected_indexes[column_index];
-            const char *value = result->rows[row_index].is_null[source_index]
-                                    ? "NULL"
-                                    : result->rows[row_index].data[source_index];
-            int value_length = (int)strlen(value);
+            int value_length = (int)strlen(
+                result->rows[row_index].data[result->selected_indexes[column_index]]);
             if (value_length > widths[column_index]) {
                 widths[column_index] = value_length;
             }
@@ -531,16 +432,6 @@ int execute_select(Statement *stmt) {
             fprintf(stderr,
                     "[ERROR] Executor: unknown ORDER BY column '%s'\n",
                     stmt->order_by.column_name);
-            schema_free(schema);
-            return -1;
-        }
-    }
-
-    for (index = 0; index < stmt->where.condition_count; ++index) {
-        if (schema_get_column_index(schema, stmt->where.conditions[index].column_name) < 0) {
-            fprintf(stderr,
-                    "[ERROR] Executor: unknown WHERE column '%s'\n",
-                    stmt->where.conditions[index].column_name);
             schema_free(schema);
             return -1;
         }

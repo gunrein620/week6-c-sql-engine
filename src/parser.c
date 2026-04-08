@@ -101,8 +101,6 @@ static int parse_condition(Parser *parser, Condition *condition) {
     Token *operator_token;
     Token *value_token;
 
-    memset(condition, 0, sizeof(*condition));
-
     if (!parse_identifier(parser,
                           condition->column_name,
                           sizeof(condition->column_name),
@@ -120,25 +118,12 @@ static int parse_condition(Parser *parser, Condition *condition) {
     condition->operator[sizeof(condition->operator) - 1] = '\0';
 
     value_token = peek(parser);
-    if (match(parser, TOKEN_NULL)) {
-        if (!(strcmp(condition->operator, "=") == 0 ||
-              strcmp(condition->operator, "!=") == 0 ||
-              strcmp(condition->operator, "<>") == 0)) {
-            parser_error(parser, "NULL in WHERE only supports = or !=");
-            return 0;
-        }
-        condition->value[0] = '\0';
-        condition->value_is_null = 1;
-        return 1;
-    }
-
     if (!(match(parser, TOKEN_STRING) || match(parser, TOKEN_NUMBER))) {
         parser_error(parser, "expected literal value in WHERE");
         return 0;
     }
     strncpy(condition->value, value_token->value, sizeof(condition->value) - 1);
     condition->value[sizeof(condition->value) - 1] = '\0';
-    condition->value_is_null = 0;
     return 1;
 }
 

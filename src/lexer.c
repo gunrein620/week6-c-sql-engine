@@ -99,24 +99,17 @@ static int read_string_literal(const char *sql,
     char buffer[MAX_TOKEN_LEN];
     int length = 0;
     int index = *cursor + 1;
-    int overflow = 0;
 
     while (sql[index] != '\0') {
         if (sql[index] == '\'') {
             if (sql[index + 1] == '\'') {
                 if (length < MAX_TOKEN_LEN - 1) {
                     buffer[length++] = '\'';
-                } else {
-                    overflow = 1;
                 }
                 index += 2;
                 continue;
             }
 
-            if (overflow) {
-                fprintf(stderr, "[ERROR] Lexer: string literal too long at line %d\n", line);
-                return -1;
-            }
             buffer[length] = '\0';
             *cursor = index + 1;
             return append_token(tokens, count, capacity, TOKEN_STRING, buffer, line);
@@ -124,103 +117,12 @@ static int read_string_literal(const char *sql,
 
         if (length < MAX_TOKEN_LEN - 1) {
             buffer[length++] = sql[index];
-        } else {
-            overflow = 1;
         }
         index++;
     }
 
     fprintf(stderr, "[ERROR] Lexer: unterminated string literal at line %d\n", line);
     return -1;
-}
-
-static int read_number_literal(const char *sql,
-                               int *cursor,
-                               int line,
-                               Token **tokens,
-                               int *count,
-                               int *capacity) {
-    char buffer[MAX_TOKEN_LEN];
-    int length = 0;
-    int index = *cursor;
-    int seen_digit = 0;
-    int seen_dot = 0;
-    int seen_exponent = 0;
-    int overflow = 0;
-
-    if (sql[index] == '+' || sql[index] == '-') {
-        if (length < MAX_TOKEN_LEN - 1) {
-            buffer[length++] = sql[index];
-        } else {
-            overflow = 1;
-        }
-        index++;
-    }
-
-    while (sql[index] != '\0') {
-        if (isdigit((unsigned char)sql[index])) {
-            seen_digit = 1;
-            if (length < MAX_TOKEN_LEN - 1) {
-                buffer[length++] = sql[index];
-            } else {
-                overflow = 1;
-            }
-            index++;
-            continue;
-        }
-
-        if (sql[index] == '.' && !seen_dot && !seen_exponent) {
-            seen_dot = 1;
-            if (length < MAX_TOKEN_LEN - 1) {
-                buffer[length++] = sql[index];
-            } else {
-                overflow = 1;
-            }
-            index++;
-            continue;
-        }
-
-        if ((sql[index] == 'e' || sql[index] == 'E') && seen_digit && !seen_exponent) {
-            if (length < MAX_TOKEN_LEN - 1) {
-                buffer[length++] = sql[index];
-            } else {
-                overflow = 1;
-            }
-            seen_exponent = 1;
-            index++;
-
-            if (sql[index] == '+' || sql[index] == '-') {
-                if (length < MAX_TOKEN_LEN - 1) {
-                    buffer[length++] = sql[index];
-                } else {
-                    overflow = 1;
-                }
-                index++;
-            }
-
-            if (!isdigit((unsigned char)sql[index])) {
-                fprintf(stderr, "[ERROR] Lexer: invalid numeric literal at line %d\n", line);
-                return -1;
-            }
-            continue;
-        }
-
-        break;
-    }
-
-    if (!seen_digit) {
-        fprintf(stderr, "[ERROR] Lexer: invalid numeric literal at line %d\n", line);
-        return -1;
-    }
-
-    if (overflow) {
-        fprintf(stderr, "[ERROR] Lexer: numeric literal too long at line %d\n", line);
-        return -1;
-    }
-
-    buffer[length] = '\0';
-    *cursor = index;
-    return append_token(tokens, count, capacity, TOKEN_NUMBER, buffer, line);
 }
 
 Token *tokenize(const char *sql, int *token_count) {
@@ -268,20 +170,12 @@ Token *tokenize(const char *sql, int *token_count) {
             char upper[MAX_TOKEN_LEN];
             char lower[MAX_TOKEN_LEN];
             int length = 0;
-            int overflow = 0;
 
             while (isalnum((unsigned char)sql[cursor]) || sql[cursor] == '_') {
                 if (length < MAX_TOKEN_LEN - 1) {
                     raw[length++] = sql[cursor];
-                } else {
-                    overflow = 1;
                 }
                 cursor++;
-            }
-            if (overflow) {
-                fprintf(stderr, "[ERROR] Lexer: identifier too long at line %d\n", line);
-                free(tokens);
-                return NULL;
             }
             raw[length] = '\0';
 
@@ -306,11 +200,26 @@ Token *tokenize(const char *sql, int *token_count) {
             continue;
         }
 
-        if (isdigit((unsigned char)ch) ||
-            ((ch == '+' || ch == '-') &&
-             (isdigit((unsigned char)sql[cursor + 1]) || sql[cursor + 1] == '.')) ||
-            (ch == '.' && isdigit((unsigned char)sql[cursor + 1]))) {
-            if (read_number_literal(sql, &cursor, line, &tokens, &count, &capacity) != 0) {
+        if (isdigit((unsigned char)ch)) {
+            char buffer[MAX_TOKEN_LEN];
+            int length = 0;
+            int seen_dot = 0;
+
+            while (isdigit((unsigned char)sql[cursor]) || sql[cursor] == '.') {
+                if (sql[cursor] == '.') {
+                    if (seen_dot) {
+                        break;
+                    }
+                    seen_dot = 1;
+                }
+                if (length < MAX_TOKEN_LEN - 1) {
+                    buffer[length++] = sql[cursor];
+                }
+                cursor++;
+            }
+            buffer[length] = '\0';
+
+            if (append_token(&tokens, &count, &capacity, TOKEN_NUMBER, buffer, line) != 0) {
                 free(tokens);
                 return NULL;
             }
@@ -433,9 +342,8 @@ Token *tokenize(const char *sql, int *token_count) {
             continue;
         }
 
-        fprintf(stderr, "[ERROR] Lexer: unsupported character '%c' at line %d\n", ch, line);
-        free(tokens);
-        return NULL;
+        fprintf(stderr, "[WARN] Lexer: skipping unsupported character '%c' at line %d\n", ch, line);
+        cursor++;
     }
 
     if (append_token(&tokens, &count, &capacity, TOKEN_EOF, "", line) != 0) {
