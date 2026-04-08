@@ -5,6 +5,8 @@
 #include "storage.h"
 
 #include <ctype.h>
+#include <errno.h>
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,28 +17,44 @@ static SortDirection g_sort_direction = SORT_ASC;
 
 static int is_valid_int(const char *text) {
     char *end_ptr;
+    long value;
 
     if (text == NULL || text[0] == '\0') {
         return 0;
     }
 
-    strtol(text, &end_ptr, 10);
-    return *end_ptr == '\0';
+    errno = 0;
+    value = strtol(text, &end_ptr, 10);
+    return errno == 0 && *end_ptr == '\0' && value >= INT32_MIN && value <= INT32_MAX;
 }
 
 static int is_valid_float(const char *text) {
     char *end_ptr;
+    double value;
 
     if (text == NULL || text[0] == '\0') {
         return 0;
     }
 
-    strtod(text, &end_ptr);
-    return *end_ptr == '\0';
+    errno = 0;
+    value = strtod(text, &end_ptr);
+    return errno == 0 && *end_ptr == '\0' &&
+           value == value &&
+           value >= -DBL_MAX &&
+           value <= DBL_MAX;
+}
+
+static int is_leap_year(int year) {
+    return ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
 }
 
 static int is_valid_date(const char *text) {
+    static const int DAYS_IN_MONTH[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int index;
+    int year;
+    int month;
+    int day;
+    int max_day;
 
     if (text == NULL || strlen(text) != 10) {
         return 0;
@@ -52,7 +70,20 @@ static int is_valid_date(const char *text) {
         }
     }
 
-    return 1;
+    year = (text[0] - '0') * 1000 + (text[1] - '0') * 100 + (text[2] - '0') * 10 + (text[3] - '0');
+    month = (text[5] - '0') * 10 + (text[6] - '0');
+    day = (text[8] - '0') * 10 + (text[9] - '0');
+
+    if (month < 1 || month > 12) {
+        return 0;
+    }
+
+    max_day = DAYS_IN_MONTH[month - 1];
+    if (month == 2 && is_leap_year(year)) {
+        max_day = 29;
+    }
+
+    return day >= 1 && day <= max_day;
 }
 
 static int contains_forbidden_storage_char(const char *text) {
