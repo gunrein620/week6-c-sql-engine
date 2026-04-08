@@ -73,6 +73,39 @@ static int test_insert_values(void) {
     return 1;
 }
 
+static int test_select_order_by_desc(void) {
+    Statement *stmt = parse_sql("SELECT id, name FROM members ORDER BY age DESC;");
+
+    if (stmt == NULL) {
+        return th_fail("parse returned NULL");
+    }
+    if (!stmt->order_by.enabled || strcmp(stmt->order_by.column_name, "age") != 0 ||
+        stmt->order_by.direction != SORT_DESC) {
+        free_statement(stmt);
+        return th_fail("ORDER BY DESC was not parsed correctly");
+    }
+
+    free_statement(stmt);
+    return 1;
+}
+
+static int test_select_order_by_default_asc(void) {
+    Statement *stmt =
+        parse_sql("SELECT * FROM members WHERE grade = 'vip' ORDER BY name;");
+
+    if (stmt == NULL) {
+        return th_fail("parse returned NULL");
+    }
+    if (!stmt->order_by.enabled || strcmp(stmt->order_by.column_name, "name") != 0 ||
+        stmt->order_by.direction != SORT_ASC || stmt->where.condition_count != 1) {
+        free_statement(stmt);
+        return th_fail("ORDER BY default ASC was not parsed correctly");
+    }
+
+    free_statement(stmt);
+    return 1;
+}
+
 static int test_mixed_and_or_rejected(void) {
     Statement *stmt =
         parse_sql("SELECT * FROM members WHERE grade = 'vip' AND age >= 25 OR age < 10;");
@@ -80,6 +113,17 @@ static int test_mixed_and_or_rejected(void) {
     if (stmt != NULL) {
         free_statement(stmt);
         return th_fail("mixed AND/OR should be rejected");
+    }
+
+    return 1;
+}
+
+static int test_multiple_order_columns_rejected(void) {
+    Statement *stmt = parse_sql("SELECT * FROM members ORDER BY age, name;");
+
+    if (stmt != NULL) {
+        free_statement(stmt);
+        return th_fail("multiple ORDER BY columns should be rejected");
     }
 
     return 1;
@@ -128,12 +172,39 @@ int main(void) {
     }
 
     th_reset_reason();
+    if (test_select_order_by_desc()) {
+        passed++;
+        th_print_result("select_order_by_desc", 1);
+    } else {
+        failed++;
+        th_print_result("select_order_by_desc", 0);
+    }
+
+    th_reset_reason();
+    if (test_select_order_by_default_asc()) {
+        passed++;
+        th_print_result("select_order_by_default_asc", 1);
+    } else {
+        failed++;
+        th_print_result("select_order_by_default_asc", 0);
+    }
+
+    th_reset_reason();
     if (test_mixed_and_or_rejected()) {
         passed++;
         th_print_result("mixed_and_or_rejected", 1);
     } else {
         failed++;
         th_print_result("mixed_and_or_rejected", 0);
+    }
+
+    th_reset_reason();
+    if (test_multiple_order_columns_rejected()) {
+        passed++;
+        th_print_result("multiple_order_columns_rejected", 1);
+    } else {
+        failed++;
+        th_print_result("multiple_order_columns_rejected", 0);
     }
 
     th_reset_reason();

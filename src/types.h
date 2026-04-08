@@ -31,6 +31,10 @@ typedef enum {
     TOKEN_INTO,
     TOKEN_FROM,
     TOKEN_WHERE,
+    TOKEN_ORDER,
+    TOKEN_BY,
+    TOKEN_ASC,
+    TOKEN_DESC,
     TOKEN_VALUES,
     TOKEN_AND,
     TOKEN_OR,
@@ -65,6 +69,11 @@ typedef enum {
     STMT_SELECT,
     STMT_INSERT
 } StatementType;
+
+typedef enum {
+    SORT_ASC = 0,
+    SORT_DESC
+} SortDirection;
 
 typedef struct {
     TokenType type;
@@ -110,10 +119,17 @@ typedef struct {
 } ColumnList;
 
 typedef struct {
+    int enabled;
+    char column_name[MAX_IDENTIFIER_LEN];
+    SortDirection direction;
+} OrderByClause;
+
+typedef struct {
     StatementType type;
     char table_name[MAX_IDENTIFIER_LEN];
     ColumnList select_columns;
     WhereClause where;
+    OrderByClause order_by;
     ColumnList insert_columns;
     char values[MAX_COLUMNS][MAX_TOKEN_LEN];
     int value_is_null[MAX_COLUMNS];

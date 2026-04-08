@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+static Schema *g_sort_schema = NULL;
+static int g_sort_column_index = -1;
+static SortDirection g_sort_direction = SORT_ASC;
+
 static int is_valid_int(const char *text) {
     char *end_ptr;
 
@@ -53,6 +57,81 @@ static int is_valid_date(const char *text) {
 
 static int contains_forbidden_storage_char(const char *text) {
     return strchr(text, '|') != NULL || strchr(text, '\n') != NULL || strchr(text, '\r') != NULL;
+}
+
+static int compare_values_for_sort(ColumnType type, const char *left, const char *right) {
+    long left_int;
+    long right_int;
+    double left_float;
+    double right_float;
+
+    if (left[0] == '\0' && right[0] == '\0') {
+        return 0;
+    }
+    if (left[0] == '\0') {
+        return -1;
+    }
+    if (right[0] == '\0') {
+        return 1;
+    }
+
+    if (type == COL_INT) {
+        if (is_valid_int(left) && is_valid_int(right)) {
+            left_int = strtol(left, NULL, 10);
+            right_int = strtol(right, NULL, 10);
+            if (left_int < right_int) {
+                return -1;
+            }
+            if (left_int > right_int) {
+                return 1;
+            }
+            return 0;
+        }
+    } else if (type == COL_FLOAT) {
+        if (is_valid_float(left) && is_valid_float(right)) {
+            left_float = strtod(left, NULL);
+            right_float = strtod(right, NULL);
+            if (left_float < right_float) {
+                return -1;
+            }
+            if (left_float > right_float) {
+                return 1;
+            }
+            return 0;
+        }
+    }
+
+    return strcmp(left, right);
+}
+
+static int compare_rows_for_sort(const void *left_ptr, const void *right_ptr) {
+    const Row *left_row = (const Row *)left_ptr;
+    const Row *right_row = (const Row *)right_ptr;
+    int result;
+
+    result = compare_values_for_sort(g_sort_schema->columns[g_sort_column_index].type,
+                                     left_row->data[g_sort_column_index],
+                                     right_row->data[g_sort_column_index]);
+
+    if (g_sort_direction == SORT_DESC) {
+        return -result;
+    }
+
+    return result;
+}
+
+static void sort_result_set(ResultSet *result, Schema *schema, int column_index, SortDirection direction) {
+    if (result->row_count <= 1) {
+        return;
+    }
+
+    g_sort_schema = schema;
+    g_sort_column_index = column_index;
+    g_sort_direction = direction;
+    qsort(result->rows, (size_t)result->row_count, sizeof(Row), compare_rows_for_sort);
+    g_sort_schema = NULL;
+    g_sort_column_index = -1;
+    g_sort_direction = SORT_ASC;
 }
 
 static int find_primary_key_index(Schema *schema) {
@@ -243,11 +322,21 @@ static void print_separator(const int *widths, int count) {
     puts("+");
 }
 
-static void print_row_values(char values[MAX_COLUMNS][MAX_TOKEN_LEN], const int *widths, int count) {
+static void print_header_row(char headers[MAX_COLUMNS][MAX_TOKEN_LEN], const int *widths, int count) {
     int column_index;
 
     for (column_index = 0; column_index < count; ++column_index) {
-        printf("| %-*s ", widths[column_index], values[column_index]);
+        printf("| %-*s ", widths[column_index], headers[column_index]);
+    }
+    puts("|");
+}
+
+static void print_result_row(const ResultSet *result, const Row *row, const int *widths) {
+    int column_index;
+
+    for (column_index = 0; column_index < result->selected_count; ++column_index) {
+        const char *value = row->data[result->selected_indexes[column_index]];
+        printf("| %-*s ", widths[column_index], value);
     }
     puts("|");
 }
@@ -269,7 +358,8 @@ static void print_result_table(ResultSet *result) {
 
     for (row_index = 0; row_index < result->row_count; ++row_index) {
         for (column_index = 0; column_index < result->selected_count; ++column_index) {
-            int value_length = (int)strlen(result->rows[row_index].data[column_index]);
+            int value_length = (int)strlen(
+                result->rows[row_index].data[result->selected_indexes[column_index]]);
             if (value_length > widths[column_index]) {
                 widths[column_index] = value_length;
             }
@@ -277,11 +367,11 @@ static void print_result_table(ResultSet *result) {
     }
 
     print_separator(widths, result->selected_count);
-    print_row_values(headers, widths, result->selected_count);
+    print_header_row(headers, widths, result->selected_count);
     print_separator(widths, result->selected_count);
 
     for (row_index = 0; row_index < result->row_count; ++row_index) {
-        print_row_values(result->rows[row_index].data, widths, result->selected_count);
+        print_result_row(result, &result->rows[row_index], widths);
     }
 
     print_separator(widths, result->selected_count);
@@ -317,6 +407,7 @@ int execute_select(Statement *stmt) {
     Schema *schema;
     ResultSet *result;
     int index;
+    int order_column_index = -1;
 
     schema = schema_load(stmt->table_name);
     if (schema == NULL) {
@@ -335,10 +426,25 @@ int execute_select(Statement *stmt) {
         }
     }
 
+    if (stmt->order_by.enabled) {
+        order_column_index = schema_get_column_index(schema, stmt->order_by.column_name);
+        if (order_column_index < 0) {
+            fprintf(stderr,
+                    "[ERROR] Executor: unknown ORDER BY column '%s'\n",
+                    stmt->order_by.column_name);
+            schema_free(schema);
+            return -1;
+        }
+    }
+
     result = storage_select(stmt->table_name, schema, &stmt->select_columns, &stmt->where);
     if (result == NULL) {
         schema_free(schema);
         return -1;
+    }
+
+    if (stmt->order_by.enabled) {
+        sort_result_set(result, schema, order_column_index, stmt->order_by.direction);
     }
 
     print_result_table(result);
