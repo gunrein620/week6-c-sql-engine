@@ -5,6 +5,8 @@
 #include "test_helpers.h"
 
 #include <limits.h>
+#include <stdio.h>
+#include <string.h>
 
 static int run_statement(const char *sql) {
     Token *tokens;
@@ -155,6 +157,75 @@ static int test_unknown_order_by_column_rejected(void) {
     return 1;
 }
 
+static void build_repeated_utf8_char(char *buffer, size_t size, const char *utf8_char, int repeat) {
+    int index;
+    size_t char_len = strlen(utf8_char);
+    size_t offset = 0;
+
+    if (size == 0) {
+        return;
+    }
+
+    buffer[0] = '\0';
+    for (index = 0; index < repeat; ++index) {
+        if (offset + char_len + 1 >= size) {
+            break;
+        }
+        memcpy(buffer + offset, utf8_char, char_len);
+        offset += char_len;
+        buffer[offset] = '\0';
+    }
+}
+
+static int test_utf8_varchar_counts_characters(void) {
+    char workspace[PATH_MAX];
+    char schema_dir[PATH_MAX];
+    char data_dir[PATH_MAX];
+    char name_32[128];
+    char name_33[132];
+    char sql[512];
+    const char *korean_char = "\xEA\xB0\x80";
+
+    if (!th_setup_workspace("executor_utf8_varchar", workspace, sizeof(workspace))) {
+        return th_fail("failed to create temporary workspace");
+    }
+
+    th_join_path(schema_dir, sizeof(schema_dir), workspace, "schemas");
+    th_join_path(data_dir, sizeof(data_dir), workspace, "data");
+
+    if (!th_write_members_schema(schema_dir)) {
+        th_remove_tree(workspace);
+        return th_fail("failed to write members schema");
+    }
+
+    config_set_schema_dir(schema_dir);
+    config_set_data_dir(data_dir);
+
+    build_repeated_utf8_char(name_32, sizeof(name_32), korean_char, 32);
+    build_repeated_utf8_char(name_33, sizeof(name_33), korean_char, 33);
+
+    snprintf(sql,
+             sizeof(sql),
+             "INSERT INTO members (id, name, grade, class, age) VALUES (10, '%s', 'vip', 'advanced', 30);",
+             name_32);
+    if (run_statement(sql) != 0) {
+        th_remove_tree(workspace);
+        return th_fail("32 UTF-8 characters should fit VARCHAR(32)");
+    }
+
+    snprintf(sql,
+             sizeof(sql),
+             "INSERT INTO members (id, name, grade, class, age) VALUES (11, '%s', 'vip', 'advanced', 30);",
+             name_33);
+    if (run_statement(sql) != -1) {
+        th_remove_tree(workspace);
+        return th_fail("33 UTF-8 characters should exceed VARCHAR(32)");
+    }
+
+    th_remove_tree(workspace);
+    return 1;
+}
+
 int main(void) {
     int passed = 0;
     int failed = 0;
@@ -193,6 +264,15 @@ int main(void) {
     } else {
         failed++;
         th_print_result("unknown_order_by_column_rejected", 0);
+    }
+
+    th_reset_reason();
+    if (test_utf8_varchar_counts_characters()) {
+        passed++;
+        th_print_result("utf8_varchar_counts_characters", 1);
+    } else {
+        failed++;
+        th_print_result("utf8_varchar_counts_characters", 0);
     }
 
     printf("Tests: %d passed, %d failed\n", passed, failed);

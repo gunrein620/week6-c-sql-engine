@@ -2,13 +2,25 @@
 #define TEST_HELPERS_H
 
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#include <io.h>
+#include <process.h>
+#else
 #include <unistd.h>
+#endif
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 #define TH_UNUSED __attribute__((unused))
@@ -17,6 +29,20 @@
 #endif
 
 static char g_test_failure_reason[256];
+
+#ifdef _WIN32
+#define TH_PATH_SEP "/"
+#define TH_SQLENGINE_CMD ".\\sqlengine.exe"
+#define th_mkdir(path) _mkdir(path)
+#define th_rmdir(path) _rmdir(path)
+#define th_getpid() _getpid()
+#else
+#define TH_PATH_SEP "/"
+#define TH_SQLENGINE_CMD "./sqlengine"
+#define th_mkdir(path) mkdir((path), 0777)
+#define th_rmdir(path) rmdir(path)
+#define th_getpid() getpid()
+#endif
 
 static int th_fail(const char *reason) {
     strncpy(g_test_failure_reason, reason, sizeof(g_test_failure_reason) - 1);
@@ -44,13 +70,13 @@ static TH_UNUSED void th_join_path(char *buffer,
                                    size_t size,
                                    const char *base,
                                    const char *leaf) {
-    snprintf(buffer, size, "%s/%s", base, leaf);
+    snprintf(buffer, size, "%s%s%s", base, TH_PATH_SEP, leaf);
 }
 
 static TH_UNUSED void th_remove_tree(const char *path) {
     struct stat st;
 
-    if (lstat(path, &st) != 0) {
+    if (stat(path, &st) != 0) {
         return;
     }
 
@@ -74,10 +100,17 @@ static TH_UNUSED void th_remove_tree(const char *path) {
         }
 
         closedir(dir);
-        rmdir(path);
+        th_rmdir(path);
     } else {
         remove(path);
     }
+}
+
+static TH_UNUSED int th_ensure_dir(const char *path) {
+    if (th_mkdir(path) == 0) {
+        return 1;
+    }
+    return errno == EEXIST;
 }
 
 static TH_UNUSED int th_write_text_file(const char *path, const char *contents) {
@@ -136,14 +169,23 @@ static TH_UNUSED char *th_read_text_file(const char *path) {
 }
 
 static TH_UNUSED int th_setup_workspace(const char *name, char *workspace, size_t size) {
+    char root_dir[PATH_MAX];
     char data_dir[PATH_MAX];
     char schema_dir[PATH_MAX];
     char sql_dir[PATH_MAX];
 
-    snprintf(workspace, size, "/tmp/sqlengine_%s_%ld", name, (long)getpid());
+    snprintf(root_dir, sizeof(root_dir), "build/test_workspaces");
+    if (!th_ensure_dir("build")) {
+        return 0;
+    }
+    if (!th_ensure_dir(root_dir)) {
+        return 0;
+    }
+
+    snprintf(workspace, size, "%s/sqlengine_%s_%ld", root_dir, name, (long)th_getpid());
     th_remove_tree(workspace);
 
-    if (mkdir(workspace, 0777) != 0) {
+    if (!th_ensure_dir(workspace)) {
         return 0;
     }
 
@@ -151,13 +193,13 @@ static TH_UNUSED int th_setup_workspace(const char *name, char *workspace, size_
     th_join_path(schema_dir, sizeof(schema_dir), workspace, "schemas");
     th_join_path(sql_dir, sizeof(sql_dir), workspace, "sql");
 
-    if (mkdir(data_dir, 0777) != 0) {
+    if (!th_ensure_dir(data_dir)) {
         return 0;
     }
-    if (mkdir(schema_dir, 0777) != 0) {
+    if (!th_ensure_dir(schema_dir)) {
         return 0;
     }
-    if (mkdir(sql_dir, 0777) != 0) {
+    if (!th_ensure_dir(sql_dir)) {
         return 0;
     }
 

@@ -4,16 +4,83 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef _WIN32
 #include <sys/wait.h>
+#endif
 
 static int exit_code_from_system(int status) {
     if (status == -1) {
         return -1;
     }
+#ifdef _WIN32
+    return status;
+#else
     if (!WIFEXITED(status)) {
         return -1;
     }
     return WEXITSTATUS(status);
+#endif
+}
+
+static void build_cli_command_e(char *command,
+                                size_t size,
+                                const char *schema_dir,
+                                const char *data_dir,
+                                const char *sql,
+                                const char *out_path,
+                                const char *err_path) {
+#ifdef _WIN32
+    snprintf(command,
+             size,
+             "cmd /c \"\"%s\" -s \"%s\" -d \"%s\" -e \"%s\" > \"%s\" 2> \"%s\"\"",
+             TH_SQLENGINE_CMD,
+             schema_dir,
+             data_dir,
+             sql,
+             out_path,
+             err_path);
+#else
+    snprintf(command,
+             size,
+             "\"%s\" -s \"%s\" -d \"%s\" -e \"%s\" > \"%s\" 2> \"%s\"",
+             TH_SQLENGINE_CMD,
+             schema_dir,
+             data_dir,
+             sql,
+             out_path,
+             err_path);
+#endif
+}
+
+static void build_cli_command_f(char *command,
+                                size_t size,
+                                const char *schema_dir,
+                                const char *data_dir,
+                                const char *sql_path,
+                                const char *out_path,
+                                const char *err_path) {
+#ifdef _WIN32
+    snprintf(command,
+             size,
+             "cmd /c \"\"%s\" -s \"%s\" -d \"%s\" -f \"%s\" > \"%s\" 2> \"%s\"\"",
+             TH_SQLENGINE_CMD,
+             schema_dir,
+             data_dir,
+             sql_path,
+             out_path,
+             err_path);
+#else
+    snprintf(command,
+             size,
+             "\"%s\" -s \"%s\" -d \"%s\" -f \"%s\" > \"%s\" 2> \"%s\"",
+             TH_SQLENGINE_CMD,
+             schema_dir,
+             data_dir,
+             sql_path,
+             out_path,
+             err_path);
+#endif
 }
 
 static int test_cli_executes_e_option(void) {
@@ -40,14 +107,13 @@ static int test_cli_executes_e_option(void) {
         return th_fail("failed to write members schema");
     }
 
-    snprintf(command,
-             sizeof(command),
-             "./sqlengine -s %s -d %s -e \"INSERT INTO members (id, name, grade, class, age) "
-             "VALUES (1, 'Alice', 'vip', 'advanced', 30);\" > %s 2> %s",
-             schema_dir,
-             data_dir,
-             out_path,
-             err_path);
+    build_cli_command_e(command,
+                        sizeof(command),
+                        schema_dir,
+                        data_dir,
+                        "INSERT INTO members (id, name, grade, class, age) VALUES (1, 'Alice', 'vip', 'advanced', 30);",
+                        out_path,
+                        err_path);
 
     exit_code = exit_code_from_system(system(command));
     stdout_text = th_read_text_file(out_path);
@@ -103,14 +169,13 @@ static int test_cli_executes_file_script(void) {
         return th_fail("failed to write SQL script");
     }
 
-    snprintf(command,
-             sizeof(command),
-             "./sqlengine -s %s -d %s -f %s > %s 2> %s",
-             schema_dir,
-             data_dir,
-             sql_path,
-             out_path,
-             err_path);
+    build_cli_command_f(command,
+                        sizeof(command),
+                        schema_dir,
+                        data_dir,
+                        sql_path,
+                        out_path,
+                        err_path);
 
     exit_code = exit_code_from_system(system(command));
     stdout_text = th_read_text_file(out_path);
@@ -153,13 +218,13 @@ static int test_cli_parse_error_exit_code(void) {
         return th_fail("failed to write members schema");
     }
 
-    snprintf(command,
-             sizeof(command),
-             "./sqlengine -s %s -d %s -e \"SELEC * FROM members;\" > %s 2> %s",
-             schema_dir,
-             data_dir,
-             out_path,
-             err_path);
+    build_cli_command_e(command,
+                        sizeof(command),
+                        schema_dir,
+                        data_dir,
+                        "SELEC * FROM members;",
+                        out_path,
+                        err_path);
 
     exit_code = exit_code_from_system(system(command));
     th_remove_tree(workspace);
@@ -213,14 +278,13 @@ static int test_cli_order_by_desc_output(void) {
         return th_fail("failed to write SQL script");
     }
 
-    snprintf(command,
-             sizeof(command),
-             "./sqlengine -s %s -d %s -f %s > %s 2> %s",
-             schema_dir,
-             data_dir,
-             sql_path,
-             out_path,
-             err_path);
+    build_cli_command_f(command,
+                        sizeof(command),
+                        schema_dir,
+                        data_dir,
+                        sql_path,
+                        out_path,
+                        err_path);
 
     exit_code = exit_code_from_system(system(command));
     stdout_text = th_read_text_file(out_path);
@@ -245,6 +309,82 @@ static int test_cli_order_by_desc_output(void) {
     }
 
     free(stdout_text);
+    return 1;
+}
+
+static int test_cli_stops_after_execution_error(void) {
+    char workspace[PATH_MAX];
+    char schema_dir[PATH_MAX];
+    char data_dir[PATH_MAX];
+    char sql_dir[PATH_MAX];
+    char sql_path[PATH_MAX];
+    char data_path[PATH_MAX];
+    char out_path[PATH_MAX];
+    char err_path[PATH_MAX];
+    char command[4096];
+    char *stdout_text;
+    char *table_text;
+    int exit_code;
+
+    if (!th_setup_workspace("cli_stop_on_error", workspace, sizeof(workspace))) {
+        return th_fail("failed to create temporary workspace");
+    }
+
+    th_join_path(schema_dir, sizeof(schema_dir), workspace, "schemas");
+    th_join_path(data_dir, sizeof(data_dir), workspace, "data");
+    th_join_path(sql_dir, sizeof(sql_dir), workspace, "sql");
+    th_join_path(sql_path, sizeof(sql_path), sql_dir, "queries.sql");
+    th_join_path(data_path, sizeof(data_path), data_dir, "members.tbl");
+    th_join_path(out_path, sizeof(out_path), workspace, "stdout.txt");
+    th_join_path(err_path, sizeof(err_path), workspace, "stderr.txt");
+
+    if (!th_write_members_schema(schema_dir)) {
+        th_remove_tree(workspace);
+        return th_fail("failed to write members schema");
+    }
+    if (!th_write_text_file(sql_path,
+                            "INSERT INTO members (id, name, grade, class, age) VALUES "
+                            "(1, 'Alice', 'vip', 'advanced', 30);\n"
+                            "INSERT INTO members (id, name, grade, class, age) VALUES "
+                            "(1, 'Bob', 'normal', 'basic', 22);\n"
+                            "INSERT INTO members (id, name, grade, class, age) VALUES "
+                            "(2, 'Cara', 'vip', 'middle', 41);\n"
+                            "SELECT * FROM members;\n")) {
+        th_remove_tree(workspace);
+        return th_fail("failed to write SQL script");
+    }
+
+    build_cli_command_f(command,
+                        sizeof(command),
+                        schema_dir,
+                        data_dir,
+                        sql_path,
+                        out_path,
+                        err_path);
+
+    exit_code = exit_code_from_system(system(command));
+    stdout_text = th_read_text_file(out_path);
+    table_text = th_read_text_file(data_path);
+    th_remove_tree(workspace);
+
+    if (exit_code != 2) {
+        free(stdout_text);
+        free(table_text);
+        return th_fail("execution error should stop script with exit code 2");
+    }
+    if (stdout_text != NULL && th_string_contains(stdout_text, "Cara")) {
+        free(stdout_text);
+        free(table_text);
+        return th_fail("statements after execution error should not run");
+    }
+    if (table_text == NULL || th_string_contains(table_text, "Cara")) {
+        free(stdout_text);
+        free(table_text);
+        return th_fail("table file should not include rows after failure");
+    }
+
+    free(stdout_text);
+    free(table_text);
     return 1;
 }
 
@@ -286,6 +426,15 @@ int main(void) {
     } else {
         failed++;
         th_print_result("cli_order_by_desc_output", 0);
+    }
+
+    th_reset_reason();
+    if (test_cli_stops_after_execution_error()) {
+        passed++;
+        th_print_result("cli_stops_after_execution_error", 1);
+    } else {
+        failed++;
+        th_print_result("cli_stops_after_execution_error", 0);
     }
 
     printf("Tests: %d passed, %d failed\n", passed, failed);

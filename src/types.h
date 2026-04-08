@@ -9,6 +9,7 @@
 #define MAX_TOKEN_LEN 256
 #define MAX_IDENTIFIER_LEN 64
 #define MAX_PATH_LEN 512
+#define NULL_STORAGE_TOKEN "\\N"
 
 /* MEMBERS 테이블의 문자열 길이 제한 */
 #define MAX_NAME_LEN 32
@@ -97,6 +98,7 @@ typedef struct {
 
 typedef struct {
     char data[MAX_COLUMNS][MAX_TOKEN_LEN];
+    int is_null[MAX_COLUMNS];
     int column_count;
 } Row;
 
@@ -104,6 +106,7 @@ typedef struct {
     char column_name[MAX_IDENTIFIER_LEN];
     char operator[4];
     char value[MAX_TOKEN_LEN];
+    int value_is_null;
 } Condition;
 
 typedef struct {
