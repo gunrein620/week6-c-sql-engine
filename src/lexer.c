@@ -125,50 +125,6 @@ static int read_string_literal(const char *sql,
     return -1;
 }
 
-static int read_number_literal(const char *sql,
-                               int *cursor,
-                               int line,
-                               Token **tokens,
-                               int *count,
-                               int *capacity) {
-    char buffer[MAX_TOKEN_LEN];
-    int length = 0;
-    int index = *cursor;
-    int seen_dot = 0;
-    int seen_digit = 0;
-
-    if (sql[index] == '+' || sql[index] == '-') {
-        if (length < MAX_TOKEN_LEN - 1) {
-            buffer[length++] = sql[index];
-        }
-        index++;
-    }
-
-    while (isdigit((unsigned char)sql[index]) || sql[index] == '.') {
-        if (sql[index] == '.') {
-            if (seen_dot) {
-                break;
-            }
-            seen_dot = 1;
-        } else {
-            seen_digit = 1;
-        }
-
-        if (length < MAX_TOKEN_LEN - 1) {
-            buffer[length++] = sql[index];
-        }
-        index++;
-    }
-
-    if (!seen_digit) {
-        return 0;
-    }
-
-    buffer[length] = '\0';
-    *cursor = index;
-    return append_token(tokens, count, capacity, TOKEN_NUMBER, buffer, line);
-}
-
 Token *tokenize(const char *sql, int *token_count) {
     Token *tokens = NULL;
     int count = 0;
@@ -244,9 +200,26 @@ Token *tokenize(const char *sql, int *token_count) {
             continue;
         }
 
-        if (isdigit((unsigned char)ch) ||
-            ((ch == '+' || ch == '-') && isdigit((unsigned char)sql[cursor + 1]))) {
-            if (read_number_literal(sql, &cursor, line, &tokens, &count, &capacity) != 0) {
+        if (isdigit((unsigned char)ch)) {
+            char buffer[MAX_TOKEN_LEN];
+            int length = 0;
+            int seen_dot = 0;
+
+            while (isdigit((unsigned char)sql[cursor]) || sql[cursor] == '.') {
+                if (sql[cursor] == '.') {
+                    if (seen_dot) {
+                        break;
+                    }
+                    seen_dot = 1;
+                }
+                if (length < MAX_TOKEN_LEN - 1) {
+                    buffer[length++] = sql[cursor];
+                }
+                cursor++;
+            }
+            buffer[length] = '\0';
+
+            if (append_token(&tokens, &count, &capacity, TOKEN_NUMBER, buffer, line) != 0) {
                 free(tokens);
                 return NULL;
             }
