@@ -17,6 +17,24 @@ SQL 입력
 
 데이터는 `data/*.tbl` 파일에 저장되고, 스키마는 `schemas/*.schema` 파일에서 읽습니다.
 
+아래 마인드맵으로 전체/세부 흐름을 바로 확인할 수 있습니다.
+
+### SQL 처리기 전체 파이프라인
+
+![SQL 처리기 파이프라인](assets/001_SQL처리기_pipeline_mindmap_ko.png)
+
+### Lexer
+
+![Lexer 마인드맵](assets/002_SQL처리기_lexer_ko.png)
+
+### Parser
+
+![Parser 마인드맵](assets/003_SQL처리기_parser_ko.png)
+
+### Executor
+
+![Executor 마인드맵](assets/004_SQL처리기_executor_ko.png)
+
 ## Supported SQL
 
 현재 지원 범위는 아래와 같습니다.
