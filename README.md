@@ -253,14 +253,15 @@ rm -f data/members.tbl
 INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'normal', 'basic', -55);
 ```
 
+
+## 에러사항
+### INSERT 파싱에러
+![오름차순 정렬상태](assets/삽입전_수정전오름차순.png)
+
 음수 값 입력 쿼리:
 
 ![음수 값 입력 쿼리](assets/음수쿼리.png)
 
-수정 전 결과 (`-55`가 `55`로 저장):
-
-![수정 전 결과](assets/삽입전_수정전오름차순.png)
-
 수정 후 결과 (음수 값 정상 반영):
 
-![수정 후 결과](assets/삽입후_수정전오름차순.png)
+![음수값 무시 결과](assets/삽입후_수정전오름차순.png)
