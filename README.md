@@ -366,7 +366,8 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 - 실제 동작: [ERROR] Executor: type mismatch for column 'age' (expected INT) 출력 후 저장되지 않음.
 
 <br>
-##명령어 정리
+
+## 명령어 정리
 
 테이블 전체확인
 ```bash
