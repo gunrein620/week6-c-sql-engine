@@ -414,7 +414,7 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 
 ![MySQL 마인드맵](assets/005_mysql_pipeline_ko.png)
 
-MySQL Optimizer는 SQL을 분석해 인덱스를 사용할지, 전체 테이블을 조회할지 결정하고 가장 효율적인 실행 계획을 Executor에 전달.
+MySQL의 Optimizer는 받은 명령어를 보고 어떤 테이블을 볼지, 인덱스를 사용할지 (index scan), 전체 테이블을 순회할지 파악해서 최적의 (최저 작동시간) 방식으로 선택하여 executor에 전달.
 
 <br>
 
