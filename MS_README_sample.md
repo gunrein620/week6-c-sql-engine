@@ -88,8 +88,6 @@ SQL 입력
 
 - 저장 방식: `Condition[] + logical_op`
 - 장점: 구현 단순화
-- 제약: 괄호 우선순위 미지원
-- 제약: 한 WHERE 절에서 `AND` / `OR` 혼합 불가
 
 ```c
 typedef struct {
@@ -103,8 +101,6 @@ typedef struct {
 
 - 저장 포맷: 파이프(`|`) 구분 텍스트
 - 장점: 구조 확인 쉬움
-- 한계: 전체 파일 순회 필요
-- 한계: 동시성 / 대용량 처리 부적합
 
 ```text
 id|name|grade|class|age
@@ -128,6 +124,24 @@ id|name|grade|class|age
   - 입력 검증
   - 데이터 무결성 보장
   - storage 호출 전 최종 방어선
+
+### 5. 아키텍처 비교 — 우리 프로젝트 vs MySQL vs SQLite
+
+| 항목 | 우리 프로젝트 | MySQL | SQLite |
+|------|-------------|-------|--------|
+| 목표 | SQL 처리 흐름 학습 | 범용 서버형 RDBMS | 임베디드 DB 엔진 |
+| 실행 형태 | 단일 CLI 프로그램 | 클라이언트-서버 | 라이브러리 + CLI 셸 |
+| 처리 파이프라인 | CLI -> Lexer -> Parser -> Executor -> Storage/Schema | Parser -> Optimizer -> Executor -> Storage Engine | Tokenizer -> Parser -> Planner/CodeGen -> VDBE -> B-tree/Pager |
+| 실행 계획 최적화 | 없음 | 강력함 | 있음 |
+| 저장 방식 | 텍스트 `.tbl` | InnoDB 등 엔진 | 단일 DB 파일 |
+| 트랜잭션 | 없음 | 지원 | 지원 |
+| 장애 복구 | 없음 | redo / undo 기반 | rollback journal / WAL |
+| 인덱스 | 없음 | 지원 | 지원 |
+
+- 포지셔닝: 산업용 DBMS 재현 아님
+- 비교 기준: 구조 학습용 mini SQL engine
+- 차별점: SQL 입력부터 저장까지 흐름이 눈에 보이는 단순 구조
+- 한계: 최적화, 복구, 동시성, 인덱스는 미구현
 
 ---
 
