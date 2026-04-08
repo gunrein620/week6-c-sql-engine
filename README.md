@@ -1,11 +1,16 @@
 # C SQL Engine
 
-파일 기반 저장소를 사용하는 최소 SQL 처리기입니다.  
-C99로 구현했고, `INSERT` 와 `SELECT` 를 지원합니다.
+파일 기반 저장소를 사용하는 최소 SQL 처리기
+
+C99로 구현 및, `INSERT` 와 `SELECT` 지원
+
+![SQL 처리기](assets/sql처리기_캡쳐화면.png)
+
+<br>
 
 ## Overview
 
-이 프로젝트는 아래 흐름으로 동작합니다.
+프로젝트 흐름 동작
 
 ```text
 SQL 입력
@@ -15,9 +20,9 @@ SQL 입력
 -> Storage (파일 저장 / 파일 조회)
 ```
 
-데이터는 `data/*.tbl` 파일에 저장되고, 스키마는 `schemas/*.schema` 파일에서 읽습니다.
+데이터는 `data/*.tbl` 파일에 저장, 스키마는 `schemas/*.schema` 파일에서 읽습니다.
 
-아래 마인드맵으로 전체/세부 흐름을 바로 확인할 수 있습니다.
+<br>
 
 ### SQL 처리기 전체 파이프라인
 
@@ -35,9 +40,11 @@ SQL 입력
 
 ![Executor 마인드맵](assets/004_SQL처리기_executor_ko.png)
 
+<br>
+
 ## Supported SQL
 
-현재 지원 범위는 아래와 같습니다.
+현재 지원 범위
 
 ```sql
 INSERT INTO members (id, name, grade, class, age) VALUES (1, 'Alice', 'vip', 'advanced', 30);
@@ -59,10 +66,12 @@ SELECT name FROM members ORDER BY age DESC;
 
 주의:
 
-- `CREATE TABLE`, `UPDATE`, `DELETE` 는 구현하지 않았습니다.
-- `WHERE` 절에서 `AND` 와 `OR` 를 한 문장 안에 섞는 것은 지원하지 않습니다.
-- `ORDER BY` 는 단일 컬럼만 지원합니다.
-- `NULL` 은 `INSERT` 값으로만 지원합니다.
+- `CREATE TABLE`, `UPDATE`, `DELETE` 는 구현하지 않음.
+- `WHERE` 절에서 `AND` 와 `OR` 를 한 문장 안에 섞는 것은 지원하지 않음.
+- `ORDER BY` 는 단일 컬럼만 지원.
+- `NULL` 은 `INSERT` 값으로만 지원.
+
+<br>
 
 ## Project Structure
 
@@ -89,6 +98,7 @@ data/
 tests/
   test_*.c
 ```
+<br>
 
 ## Build
 
@@ -96,24 +106,26 @@ tests/
 cd /Users/kunwoopark/WS/jungle-12/week6-c-sql-engine
 make
 ```
-
+<br>
 디버그 빌드:
 
 ```bash
 make debug
 ```
-
+<br>
 테스트 실행:
 
 ```bash
 make test
 ```
-
+<br>
 정리:
 
 ```bash
 make clean
 ```
+
+<br>
 
 ## Basic Usage
 
@@ -125,8 +137,10 @@ make clean
 rm -f data/members.tbl
 ```
 
-이 명령은 `members` 의 데이터 파일만 삭제합니다.  
-스키마 파일은 그대로 남아 있으므로 `make` 를 다시 할 필요는 없습니다.
+이 명령은 `members` 의 데이터 파일만 삭제.  
+스키마 파일은 그대로 남아 있으므로 `make` 를 다시 할 필요는 없음.
+
+<br>
 
 ### 2. SQL 한 줄 직접 실행
 
@@ -135,13 +149,13 @@ rm -f data/members.tbl
 ```bash
 ./sqlengine -e "INSERT INTO members (id, name, grade, class, age) VALUES (1, '김철수', 'vip', 'advanced', 42);"
 ```
-
+<br>
 전체 조회:
 
 ```bash
 ./sqlengine -e "SELECT * FROM members;"
 ```
-
+<br>
 조건 조회:
 
 ```bash
@@ -151,6 +165,8 @@ rm -f data/members.tbl
 ./sqlengine -e "SELECT * FROM members ORDER BY age;"
 ./sqlengine -e "SELECT name FROM members ORDER BY age DESC;"
 ```
+
+<br>
 
 ### 3. SQL 파일 실행
 
@@ -173,7 +189,9 @@ EOF
 ```
 
 `cat > sql/test.sql <<'EOF'` 는 SQL 실행 명령이 아니라,  
-여러 줄의 SQL 문장을 `.sql` 파일로 저장하는 셸 문법입니다.
+여러 줄의 SQL 문장을 `.sql` 파일로 저장하는 셸 문.
+
+<br>
 
 ## CLI Options
 
@@ -196,7 +214,7 @@ EOF
 
 ## MEMBERS Schema
 
-기본 테이블은 `members` 입니다.
+기본 테이블 : `members`
 
 | column | type | description |
 |---|---|---|
@@ -206,13 +224,15 @@ EOF
 | `class` | `VARCHAR(16)` | 수강반 (`advanced`, `middle`, `basic`) |
 | `age` | `INT` | 나이 |
 
+<br>
+
 기본 스키마 파일:
 
 [members.schema](/Users/kunwoopark/WS/jungle-12/week6-c-sql-engine/schemas/members.schema)
 
-## Demo Scenario
+<br>
 
-발표나 확인용으로 가장 간단한 흐름입니다.
+## Demo Scenario
 
 ```bash
 rm -f data/members.tbl
@@ -223,6 +243,8 @@ rm -f data/members.tbl
 ./sqlengine -e "SELECT * FROM members WHERE grade = 'vip';"
 ./sqlengine -e "SELECT name FROM members ORDER BY age DESC;"
 ```
+
+<br>
 
 ## Error Scenarios
 
@@ -250,13 +272,16 @@ rm -f data/members.tbl
 ./sqlengine -e "SELEC * FROM members;"
 ```
 
+<br>
+
 ## Notes
 
-- 데이터 파일은 실행 시 자동 생성됩니다.
-- `rm -f data/members.tbl` 후에는 첫 `INSERT` 때 다시 파일이 생성됩니다.
-- 한글 이름도 저장 가능합니다.
-- 저장 포맷 단순화를 위해 값 안의 `|`, 개행 문자는 지원하지 않습니다.
+- 데이터 파일은 실행 시 자동 생성.
+- `rm -f data/members.tbl` 후에는 첫 `INSERT` 때 다시 파일이 생성.
+- 한글 이름도 저장 가능.
+- 저장 포맷 단순화를 위해 값 안의 `|`, 개행 문자는 지원하지 않음.
 
+<br>
 
 ## INSERT 음수 파싱 에러
 
@@ -325,7 +350,7 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 - 기대 동작: 타입 불일치 에러 발생
 - 실제 동작: [ERROR] Executor: type mismatch for column 'age' (expected INT) 출력 후 저장되지 않음
 
-
+<br>
 
 ## DBMS 비교 참고 이미지
 
@@ -333,9 +358,17 @@ INSERT INTO members (id, name, grade, class, age) VALUES (31, '테스트', 'norm
 
 ![MySQL 마인드맵](assets/005_mysql_pipeline_ko.png)
 
+MySQL Optimizer는 SQL을 분석해 인덱스를 사용할지, 전체 테이블을 조회할지 결정하고 가장 효율적인 실행 계획을 Executor에 전달
+
+<br>
+
 ### SQLite 파이프라인
 
 ![SQLite 마인드맵](assets/006_sqlite_pipeline_ko.png)
+
+SQLite는 SQL을 바로 실행하지 않고 VDBE 기반 중간 명령으로 처리해 구조를 단순화하고 확장성을 높인다.
+
+<br>
 
 ### MySQL vs SQLite
 
